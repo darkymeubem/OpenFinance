@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import { db } from './config/firebase';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -54,6 +55,39 @@ app.get('/api/test', (req, res) => {
       timestamp: new Date().toISOString()
     }
   });
+});
+
+// Rota de teste de conexão com Firebase
+app.get('/api/test-firebase', async (req, res) => {
+  try {
+    console.log('🔍 Testando conexão com Firebase...');
+    
+    // Tenta acessar o Firestore
+    const testDoc = await db.collection('test').doc('connection').get();
+    
+    res.json({
+      success: true,
+      message: '✅ Conexão com Firebase estabelecida com sucesso!',
+      data: {
+        exists: testDoc.exists,
+        server: 'Node.js + Express',
+        database: 'Firebase Firestore',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Erro ao conectar com Firebase:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      message: '❌ Falha na conexão com Firebase',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erro ao conectar com o banco de dados',
+      details: process.env.NODE_ENV === 'development' ? {
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL
+      } : undefined
+    });
+  }
 });
 
 // Rota para receber transações do iPhone
