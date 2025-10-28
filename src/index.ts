@@ -2,11 +2,20 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
-import { db } from "./config/firebase";
+import { SupabaseWrapper } from "./config/supabase-wrapper";
 import transactionService from "./services/TransactionService";
 
 // Carregar variáveis de ambiente
 dotenv.config();
+
+// Inicializar Supabase
+try {
+  SupabaseWrapper.init();
+  console.log("✅ Supabase inicializado com sucesso!");
+} catch (error: any) {
+  console.error("❌ Erro ao inicializar Supabase:", error.message);
+  process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,36 +60,45 @@ app.get("/api/test", (req, res) => {
     message: "API funcionando!",
     data: {
       server: "Node.js + Express",
-      database: "Firebase",
+      database: "Supabase (PostgreSQL)",
       timestamp: new Date().toISOString(),
     },
   });
 });
 
-// Rota de teste de conexão com Firebase
-app.get("/api/test-firebase", async (req, res) => {
+// Rota de teste de conexão com Supabase
+app.get("/api/test-supabase", async (req, res) => {
   try {
-    console.log("🔍 Testando conexão com Firebase...");
+    console.log("🔍 Testando conexão com Supabase...");
 
-    // Tenta acessar o Firestore
-    const testDoc = await db.collection("test").doc("connection").get();
+    const supabase = SupabaseWrapper.get();
+    
+    // Tenta fazer uma query simples na tabela transactions
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("count")
+      .limit(1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
 
     res.json({
       success: true,
-      message: "✅ Conexão com Firebase estabelecida com sucesso!",
+      message: "✅ Conexão com Supabase estabelecida com sucesso!",
       data: {
-        exists: testDoc.exists,
+        connected: true,
         server: "Node.js + Express",
-        database: "Firebase Firestore",
+        database: "Supabase (PostgreSQL)",
         timestamp: new Date().toISOString(),
       },
     });
   } catch (error: any) {
-    console.error("❌ Erro ao conectar com Firebase:", error.message);
+    console.error("❌ Erro ao conectar com Supabase:", error.message);
 
     res.status(500).json({
       success: false,
-      message: "❌ Falha na conexão com Firebase",
+      message: "❌ Falha na conexão com Supabase",
       error:
         process.env.NODE_ENV === "development"
           ? error.message
@@ -88,10 +106,8 @@ app.get("/api/test-firebase", async (req, res) => {
       details:
         process.env.NODE_ENV === "development"
           ? {
-              hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
-              hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
-              hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
-              projectId: process.env.FIREBASE_PROJECT_ID,
+              hasSupabaseUrl: !!process.env.SUPABASE_URL,
+              hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
             }
           : undefined,
     });
@@ -121,7 +137,7 @@ app.post("/api/transaction", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
-    // Salvar no Firebase
+    // Salvar no Supabase
     const transaction = await transactionService.create({
       description,
       amount: Number(amount),
@@ -133,14 +149,14 @@ app.post("/api/transaction", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Transação salva no Firebase com sucesso!",
+      message: "Transação salva com sucesso!",
       data: transaction,
     });
   } catch (error: any) {
     console.error("Erro ao processar transação:", error);
     res.status(500).json({
       success: false,
-      message: "Erro ao salvar transação no Firebase",
+      message: "Erro ao salvar transação",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }

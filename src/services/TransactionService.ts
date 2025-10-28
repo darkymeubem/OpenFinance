@@ -1,4 +1,4 @@
-import { db } from "../config/firebase";
+import { SupabaseWrapper } from "../config/supabase-wrapper";
 import {
   Transaction,
   CreateTransactionDTO,
@@ -7,15 +7,16 @@ import {
 } from "../types/Transaction";
 
 export class TransactionService {
-  private readonly collectionName = "transactions";
+  private readonly tableName = "transactions";
 
   /**
-   * Cria uma nova transação no Firebase
+   * Cria uma nova transação no Supabase
    */
   async create(data: CreateTransactionDTO): Promise<Transaction> {
     try {
-      const now = new Date();
-      const month_year = data.month_year || this.formatMonthYear(now);
+      const supabase = SupabaseWrapper.get();
+      const now = new Date().toISOString();
+      const month_year = data.month_year || this.formatMonthYear(new Date());
 
       // Preparar dados removendo campos undefined
       const transactionData: any = {
@@ -31,14 +32,17 @@ export class TransactionService {
       if (data.tags) transactionData.tags = data.tags;
       if (data.location) transactionData.location = data.location;
 
-      const docRef = await db
-        .collection(this.collectionName)
-        .add(transactionData);
+      const { data: insertedData, error } = await supabase
+        .from(this.tableName)
+        .insert(transactionData)
+        .select()
+        .single();
 
-      return {
-        id: docRef.id,
-        ...transactionData,
-      };
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return insertedData as Transaction;
     } catch (error: any) {
       console.error("Erro ao criar transação:", error);
       throw new Error(`Falha ao criar transação: ${error.message}`);
@@ -50,19 +54,21 @@ export class TransactionService {
    */
   async findMany(filters?: TransactionFilters): Promise<Transaction[]> {
     try {
-      let query = db
-        .collection(this.collectionName)
-        .orderBy("created_at", "desc");
+      const supabase = SupabaseWrapper.get();
+      let query = supabase
+        .from(this.tableName)
+        .select("*")
+        .order("created_at", { ascending: false });
 
       // Aplicar filtros
       if (filters?.month_year) {
-        query = query.where("month_year", "==", filters.month_year);
+        query = query.eq("month_year", filters.month_year);
       }
       if (filters?.category) {
-        query = query.where("category", "==", filters.category);
+        query = query.eq("category", filters.category);
       }
       if (filters?.is_credit_card !== undefined) {
-        query = query.where("is_credit_card", "==", filters.is_credit_card);
+        query = query.eq("is_credit_card", filters.is_credit_card);
       }
 
       // Limite e offset
@@ -70,15 +76,19 @@ export class TransactionService {
         query = query.limit(filters.limit);
       }
       if (filters?.offset) {
-        query = query.offset(filters.offset);
+        query = query.range(
+          filters.offset,
+          filters.offset + (filters.limit || 10) - 1
+        );
       }
 
-      const snapshot = await query.get();
+      const { data, error } = await query;
 
-      return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Transaction[];
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return (data || []) as Transaction[];
     } catch (error: any) {
       console.error("Erro ao buscar transações:", error);
       throw new Error(`Falha ao buscar transações: ${error.message}`);
@@ -90,16 +100,22 @@ export class TransactionService {
    */
   async findById(id: string): Promise<Transaction | null> {
     try {
-      const doc = await db.collection(this.collectionName).doc(id).get();
+      const supabase = SupabaseWrapper.get();
+      const { data, error } = await supabase
+        .from(this.tableName)
+        .select("*")
+        .eq("id", id)
+        .single();
 
-      if (!doc.exists) {
-        return null;
+      if (error) {
+        if (error.code === "PGRST116") {
+          // Registro não encontrado
+          return null;
+        }
+        throw new Error(error.message);
       }
 
-      return {
-        id: doc.id,
-        ...doc.data(),
-      } as Transaction;
+      return data as Transaction;
     } catch (error: any) {
       console.error("Erro ao buscar transação:", error);
       throw new Error(`Falha ao buscar transação: ${error.message}`);
@@ -111,16 +127,25 @@ export class TransactionService {
    */
   async update(id: string, data: UpdateTransactionDTO): Promise<Transaction> {
     try {
+      const supabase = SupabaseWrapper.get();
       const updateData: Partial<Transaction> = { ...data };
 
-      await db.collection(this.collectionName).doc(id).update(updateData);
+      const { data: updatedData, error } = await supabase
+        .from(this.tableName)
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
 
-      const updated = await this.findById(id);
-      if (!updated) {
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!updatedData) {
         throw new Error("Transação não encontrada após atualização");
       }
 
-      return updated;
+      return updatedData as Transaction;
     } catch (error: any) {
       console.error("Erro ao atualizar transação:", error);
       throw new Error(`Falha ao atualizar transação: ${error.message}`);
@@ -132,7 +157,15 @@ export class TransactionService {
    */
   async delete(id: string): Promise<void> {
     try {
-      await db.collection(this.collectionName).doc(id).delete();
+      const supabase = SupabaseWrapper.get();
+      const { error } = await supabase
+        .from(this.tableName)
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
     } catch (error: any) {
       console.error("Erro ao deletar transação:", error);
       throw new Error(`Falha ao deletar transação: ${error.message}`);

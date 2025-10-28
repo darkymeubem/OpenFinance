@@ -1,4 +1,4 @@
-// Interface principal da transação (baseada no seu Firebase)
+// Interface principal da transação
 export interface Transaction {
     id?: string;
     description: string;
