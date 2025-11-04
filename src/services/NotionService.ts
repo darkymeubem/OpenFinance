@@ -6,16 +6,33 @@ import { Transaction } from "../types/Transaction";
  * Mapeia transações para páginas no database do Notion
  */
 export class NotionService {
-  private readonly databaseId: string;
+  private readonly databaseId: string | undefined;
 
   constructor() {
-    const dbId = process.env.NOTION_DATABASE_ID;
-    if (!dbId) {
+    this.databaseId = process.env.NOTION_DATABASE_ID;
+  }
+
+  /**
+   * Verifica se o Notion está configurado
+   */
+  private isConfigured(): boolean {
+    return !!this.databaseId && !!process.env.NOTION_TOKEN;
+  }
+
+  /**
+   * Lança erro se o Notion não estiver configurado
+   */
+  private ensureConfigured(): void {
+    if (!this.databaseId) {
       throw new Error(
         "NOTION_DATABASE_ID não está configurado nas variáveis de ambiente"
       );
     }
-    this.databaseId = dbId;
+    if (!process.env.NOTION_TOKEN) {
+      throw new Error(
+        "NOTION_TOKEN não está configurado nas variáveis de ambiente"
+      );
+    }
   }
 
   /**
@@ -24,6 +41,8 @@ export class NotionService {
    * @returns ID da página criada no Notion
    */
   async createTransaction(transaction: Transaction): Promise<string> {
+    this.ensureConfigured();
+
     try {
       const notion = NotionWrapper.get();
 
@@ -114,7 +133,7 @@ export class NotionService {
 
       const response = await notion.pages.create({
         parent: {
-          database_id: this.databaseId,
+          database_id: this.databaseId!,
         },
         properties,
       });
@@ -136,6 +155,8 @@ export class NotionService {
     notionPageId: string,
     transaction: Partial<Transaction>
   ): Promise<void> {
+    this.ensureConfigured();
+
     try {
       const notion = NotionWrapper.get();
 
@@ -242,6 +263,8 @@ export class NotionService {
    * @param notionPageId - ID da página no Notion
    */
   async deleteTransaction(notionPageId: string): Promise<void> {
+    this.ensureConfigured();
+
     try {
       const notion = NotionWrapper.get();
 
@@ -261,11 +284,16 @@ export class NotionService {
    * Testa a conexão com o Notion e verifica se o database existe
    */
   async testConnection(): Promise<boolean> {
+    if (!this.isConfigured()) {
+      console.error("❌ Notion não está configurado");
+      return false;
+    }
+
     try {
       const notion = NotionWrapper.get();
 
       const response = await notion.databases.retrieve({
-        database_id: this.databaseId,
+        database_id: this.databaseId!,
       });
 
       console.log("✅ Database do Notion encontrado com sucesso");

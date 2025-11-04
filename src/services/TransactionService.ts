@@ -233,14 +233,18 @@ export class TransactionService {
       if (transaction?.notion_page_id) {
         try {
           await notionService.deleteTransaction(transaction.notion_page_id);
-          console.log("✅ Transação deletada do Supabase e arquivada no Notion");
+          console.log(
+            "✅ Transação deletada do Supabase e arquivada no Notion"
+          );
         } catch (notionError: any) {
           console.error("⚠️ Erro ao arquivar no Notion:", notionError.message);
           console.log("ℹ️ Transação deletada apenas do Supabase");
           // Não lançar erro - a transação foi deletada do Supabase
         }
       } else {
-        console.log("ℹ️ Transação não possui notion_page_id, pulando arquivamento");
+        console.log(
+          "ℹ️ Transação não possui notion_page_id, pulando arquivamento"
+        );
       }
     } catch (error: any) {
       console.error("Erro ao deletar transação:", error);

@@ -19,13 +19,25 @@ try {
   process.exit(1);
 }
 
-// Inicializar Notion
-try {
-  NotionWrapper.init();
-  console.log("✅ Notion inicializado com sucesso!");
-} catch (error: any) {
-  console.error("❌ Erro ao inicializar Notion:", error.message);
-  console.log("⚠️ Continuando sem integração com o Notion...");
+// Inicializar Notion (opcional)
+const hasNotionConfig =
+  process.env.NOTION_TOKEN && process.env.NOTION_DATABASE_ID;
+
+if (hasNotionConfig) {
+  try {
+    NotionWrapper.init();
+    console.log("✅ Notion inicializado com sucesso!");
+  } catch (error: any) {
+    console.error("❌ Erro ao inicializar Notion:", error.message);
+    console.log("⚠️ Continuando sem integração com o Notion...");
+  }
+} else {
+  console.log(
+    "ℹ️ Notion não configurado - a aplicação funcionará apenas com Supabase"
+  );
+  console.log(
+    "ℹ️ Para habilitar o Notion, configure NOTION_TOKEN e NOTION_DATABASE_ID no .env"
+  );
 }
 
 const app = express();
