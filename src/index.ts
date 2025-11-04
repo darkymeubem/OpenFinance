@@ -3,7 +3,9 @@ import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import { SupabaseWrapper } from "./config/supabase-wrapper";
+import { NotionWrapper } from "./config/notion-wrapper";
 import transactionService from "./services/TransactionService";
+import notionService from "./services/NotionService";
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -15,6 +17,15 @@ try {
 } catch (error: any) {
   console.error("❌ Erro ao inicializar Supabase:", error.message);
   process.exit(1);
+}
+
+// Inicializar Notion
+try {
+  NotionWrapper.init();
+  console.log("✅ Notion inicializado com sucesso!");
+} catch (error: any) {
+  console.error("❌ Erro ao inicializar Notion:", error.message);
+  console.log("⚠️ Continuando sem integração com o Notion...");
 }
 
 const app = express();
@@ -72,7 +83,7 @@ app.get("/api/test-supabase", async (req, res) => {
     console.log("🔍 Testando conexão com Supabase...");
 
     const supabase = SupabaseWrapper.get();
-    
+
     // Tenta fazer uma query simples na tabela transactions
     const { data, error } = await supabase
       .from("transactions")
@@ -108,6 +119,47 @@ app.get("/api/test-supabase", async (req, res) => {
           ? {
               hasSupabaseUrl: !!process.env.SUPABASE_URL,
               hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+            }
+          : undefined,
+    });
+  }
+});
+
+// Rota de teste de conexão com Notion
+app.get("/api/test-notion", async (req, res) => {
+  try {
+    console.log("🔍 Testando conexão com Notion...");
+
+    const isConnected = await notionService.testConnection();
+
+    if (!isConnected) {
+      throw new Error("Falha ao conectar com o database do Notion");
+    }
+
+    res.json({
+      success: true,
+      message: "✅ Conexão com Notion estabelecida com sucesso!",
+      data: {
+        connected: true,
+        databaseId: process.env.NOTION_DATABASE_ID,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Erro ao conectar com Notion:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "❌ Falha na conexão com Notion",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Erro ao conectar com o Notion",
+      details:
+        process.env.NODE_ENV === "development"
+          ? {
+              hasNotionToken: !!process.env.NOTION_TOKEN,
+              hasNotionDatabaseId: !!process.env.NOTION_DATABASE_ID,
             }
           : undefined,
     });

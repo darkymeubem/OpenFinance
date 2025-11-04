@@ -13,6 +13,7 @@ export interface Transaction {
       longitude: number;
       address?: string;
     };
+    notion_page_id?: string; // ID da página no Notion (para sincronização)
   }
   
   // Interface para criar nova transação (sem id e created_at)

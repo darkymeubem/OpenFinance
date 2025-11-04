@@ -5,12 +5,13 @@ import {
   UpdateTransactionDTO,
   TransactionFilters,
 } from "../types/Transaction";
+import notionService from "./NotionService";
 
 export class TransactionService {
   private readonly tableName = "transactions";
 
   /**
-   * Cria uma nova transação no Supabase
+   * Cria uma nova transação no Supabase e sincroniza com o Notion
    */
   async create(data: CreateTransactionDTO): Promise<Transaction> {
     try {
@@ -32,6 +33,7 @@ export class TransactionService {
       if (data.tags) transactionData.tags = data.tags;
       if (data.location) transactionData.location = data.location;
 
+      // 1. Salvar no Supabase
       const { data: insertedData, error } = await supabase
         .from(this.tableName)
         .insert(transactionData)
@@ -42,7 +44,40 @@ export class TransactionService {
         throw new Error(error.message);
       }
 
-      return insertedData as Transaction;
+      const transaction = insertedData as Transaction;
+
+      // 2. Sincronizar com o Notion
+      try {
+        const notionPageId = await notionService.createTransaction(transaction);
+
+        // 3. Atualizar o Supabase com o ID da página do Notion
+        const { data: updatedData, error: updateError } = await supabase
+          .from(this.tableName)
+          .update({ notion_page_id: notionPageId })
+          .eq("id", transaction.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error(
+            "⚠️ Erro ao atualizar notion_page_id no Supabase:",
+            updateError
+          );
+        } else {
+          transaction.notion_page_id = notionPageId;
+        }
+
+        console.log("✅ Transação salva no Supabase e Notion");
+      } catch (notionError: any) {
+        console.error(
+          "⚠️ Erro ao sincronizar com o Notion:",
+          notionError.message
+        );
+        console.log("ℹ️ Transação salva apenas no Supabase");
+        // Não lançar erro - a transação foi salva no Supabase
+      }
+
+      return transaction;
     } catch (error: any) {
       console.error("Erro ao criar transação:", error);
       throw new Error(`Falha ao criar transação: ${error.message}`);
@@ -123,13 +158,14 @@ export class TransactionService {
   }
 
   /**
-   * Atualiza uma transação
+   * Atualiza uma transação no Supabase e sincroniza com o Notion
    */
   async update(id: string, data: UpdateTransactionDTO): Promise<Transaction> {
     try {
       const supabase = SupabaseWrapper.get();
       const updateData: Partial<Transaction> = { ...data };
 
+      // 1. Atualizar no Supabase
       const { data: updatedData, error } = await supabase
         .from(this.tableName)
         .update(updateData)
@@ -145,7 +181,28 @@ export class TransactionService {
         throw new Error("Transação não encontrada após atualização");
       }
 
-      return updatedData as Transaction;
+      const transaction = updatedData as Transaction;
+
+      // 2. Sincronizar com o Notion (se houver notion_page_id)
+      if (transaction.notion_page_id) {
+        try {
+          await notionService.updateTransaction(
+            transaction.notion_page_id,
+            transaction
+          );
+          console.log("✅ Transação atualizada no Supabase e Notion");
+        } catch (notionError: any) {
+          console.error("⚠️ Erro ao atualizar no Notion:", notionError.message);
+          console.log("ℹ️ Transação atualizada apenas no Supabase");
+          // Não lançar erro - a transação foi atualizada no Supabase
+        }
+      } else {
+        console.log(
+          "ℹ️ Transação não possui notion_page_id, pulando sincronização"
+        );
+      }
+
+      return transaction;
     } catch (error: any) {
       console.error("Erro ao atualizar transação:", error);
       throw new Error(`Falha ao atualizar transação: ${error.message}`);
@@ -153,11 +210,16 @@ export class TransactionService {
   }
 
   /**
-   * Deleta uma transação
+   * Deleta uma transação do Supabase e arquiva no Notion
    */
   async delete(id: string): Promise<void> {
     try {
       const supabase = SupabaseWrapper.get();
+
+      // 1. Buscar a transação para obter o notion_page_id
+      const transaction = await this.findById(id);
+
+      // 2. Deletar do Supabase
       const { error } = await supabase
         .from(this.tableName)
         .delete()
@@ -165,6 +227,20 @@ export class TransactionService {
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      // 3. Arquivar no Notion (se houver notion_page_id)
+      if (transaction?.notion_page_id) {
+        try {
+          await notionService.deleteTransaction(transaction.notion_page_id);
+          console.log("✅ Transação deletada do Supabase e arquivada no Notion");
+        } catch (notionError: any) {
+          console.error("⚠️ Erro ao arquivar no Notion:", notionError.message);
+          console.log("ℹ️ Transação deletada apenas do Supabase");
+          // Não lançar erro - a transação foi deletada do Supabase
+        }
+      } else {
+        console.log("ℹ️ Transação não possui notion_page_id, pulando arquivamento");
       }
     } catch (error: any) {
       console.error("Erro ao deletar transação:", error);
