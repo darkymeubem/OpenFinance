@@ -6,24 +6,34 @@ import { Transaction } from "../types/Transaction";
  * Mapeia transações para páginas no database do Notion
  */
 export class NotionService {
-  private readonly databaseId: string | undefined;
-
-  constructor() {
-    this.databaseId = process.env.NOTION_DATABASE_ID;
+  /**
+   * Obtém o Database ID das variáveis de ambiente
+   */
+  private getDatabaseId(): string | undefined {
+    return process.env.NOTION_DATABASE_ID;
   }
 
   /**
    * Verifica se o Notion está configurado
    */
   private isConfigured(): boolean {
-    return !!this.databaseId && !!process.env.NOTION_TOKEN;
+    const hasToken = !!process.env.NOTION_TOKEN;
+    const databaseId = this.getDatabaseId();
+    const hasDatabaseId = !!databaseId;
+    const tokenIsValid =
+      hasToken &&
+      (process.env.NOTION_TOKEN!.startsWith("secret_") ||
+        process.env.NOTION_TOKEN!.startsWith("ntn_"));
+
+    return hasDatabaseId && tokenIsValid;
   }
 
   /**
    * Lança erro se o Notion não estiver configurado
    */
   private ensureConfigured(): void {
-    if (!this.databaseId) {
+    const databaseId = this.getDatabaseId();
+    if (!databaseId) {
       throw new Error(
         "NOTION_DATABASE_ID não está configurado nas variáveis de ambiente"
       );
@@ -133,7 +143,7 @@ export class NotionService {
 
       const response = await notion.pages.create({
         parent: {
-          database_id: this.databaseId!,
+          database_id: this.getDatabaseId()!,
         },
         properties,
       });
@@ -291,16 +301,22 @@ export class NotionService {
 
     try {
       const notion = NotionWrapper.get();
+      const databaseId = this.getDatabaseId();
 
       const response = await notion.databases.retrieve({
-        database_id: this.databaseId!,
+        database_id: databaseId!,
       });
 
-      console.log("✅ Database do Notion encontrado com sucesso");
+      console.log("✅ Conexão com Notion estabelecida - Database acessível");
       return true;
     } catch (error: any) {
-      console.error("❌ Erro ao conectar com o Notion:", error.message);
-      return false;
+      console.error("❌ Erro ao conectar com o Notion:");
+      console.error("   Status:", error.status);
+      console.error("   Code:", error.code);
+      console.error("   Message:", error.message);
+
+      // Re-lançar o erro para que possamos capturá-lo na rota
+      throw error;
     }
   }
 }

@@ -19,8 +19,27 @@ export class NotionWrapper {
       );
     }
 
+    // Validar formato do token
+    // Nota: A partir de setembro/2024, a Notion usa prefixo 'ntn_' para tokens novos
+    if (!notionToken.startsWith("secret_") && !notionToken.startsWith("ntn_")) {
+      throw new Error(
+        `NOTION_TOKEN inválido: deve começar com 'secret_' ou 'ntn_' mas começa com '${notionToken.substring(
+          0,
+          7
+        )}'. ` +
+          "Acesse https://www.notion.so/my-integrations e copie o 'Internal Integration Token'"
+      );
+    }
+
+    if (notionToken.startsWith("ntn_")) {
+      console.log(
+        "✅ Token com formato novo (ntn_) - padrão desde setembro/2024"
+      );
+    }
+
     this.instance = new Client({
       auth: notionToken,
+      notionVersion: "2025-09-03", // Versão da API do Notion
     });
 
     console.log("✅ Cliente Notion inicializado com sucesso");

@@ -141,6 +141,13 @@ app.get("/api/test-supabase", async (req, res) => {
 app.get("/api/test-notion", async (req, res) => {
   try {
     console.log("🔍 Testando conexão com Notion...");
+    console.log(`📝 Database ID: ${process.env.NOTION_DATABASE_ID}`);
+    console.log(
+      `🔑 Token (primeiros 20 chars): ${process.env.NOTION_TOKEN?.substring(
+        0,
+        20
+      )}...`
+    );
 
     const isConnected = await notionService.testConnection();
 
@@ -158,20 +165,44 @@ app.get("/api/test-notion", async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error("❌ Erro ao conectar com Notion:", error.message);
+    console.error("❌ Erro detalhado ao conectar com Notion:");
+    console.error("   Mensagem:", error.message);
+    console.error("   Código:", error.code);
+    console.error("   Status:", error.status);
+
+    // Mensagens de erro mais específicas
+    let errorMessage = error.message;
+    let helpText = "";
+
+    if (error.code === "object_not_found" || error.status === 404) {
+      errorMessage = "Database não encontrado";
+      helpText =
+        "Verifique se: 1) O ID do database está correto, 2) A integração tem acesso ao database (clique em '...' > 'Add connections' no Notion)";
+    } else if (error.code === "unauthorized" || error.status === 401) {
+      errorMessage = "Token de autenticação inválido";
+      helpText =
+        "Verifique se o NOTION_TOKEN está correto e começa com 'secret_'";
+    } else if (error.code === "restricted_resource" || error.status === 403) {
+      errorMessage =
+        "A integração não tem permissão para acessar este database";
+      helpText =
+        "Abra o database no Notion, clique em '...' (três pontos), vá em 'Add connections' e adicione sua integração";
+    }
 
     res.status(500).json({
       success: false,
       message: "❌ Falha na conexão com Notion",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Erro ao conectar com o Notion",
+      error: errorMessage,
+      help: helpText,
       details:
         process.env.NODE_ENV === "development"
           ? {
               hasNotionToken: !!process.env.NOTION_TOKEN,
+              tokenPrefix: process.env.NOTION_TOKEN?.substring(0, 7),
               hasNotionDatabaseId: !!process.env.NOTION_DATABASE_ID,
+              databaseId: process.env.NOTION_DATABASE_ID,
+              errorCode: error.code,
+              errorStatus: error.status,
             }
           : undefined,
     });
