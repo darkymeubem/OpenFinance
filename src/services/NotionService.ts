@@ -126,19 +126,46 @@ export class NotionService {
 
       // Localização (Text) - opcional
       if (transaction.location) {
-        const locationText =
-          transaction.location.address ||
-          `${transaction.location.latitude}, ${transaction.location.longitude}`;
-
-        properties.Localização = {
-          rich_text: [
-            {
-              text: {
-                content: locationText,
+        // Enviar apenas o endereço formatado (coordenadas estão em Latitude/Longitude)
+        if (transaction.location.address) {
+          properties.Localização = {
+            rich_text: [
+              {
+                text: {
+                  content: transaction.location.address,
+                },
               },
-            },
-          ],
-        };
+            ],
+          };
+        }
+
+        // Latitude (Text)
+        if (transaction.location.latitude) {
+          properties.Latitude = {
+            rich_text: [
+              {
+                text: {
+                  content: String(transaction.location.latitude),
+                },
+              },
+            ],
+          };
+        }
+
+        // Longitude (Text)
+        if (transaction.location.longitude) {
+          properties.Longitude = {
+            rich_text: [
+              {
+                text: {
+                  content: String(transaction.location.longitude),
+                },
+              },
+            ],
+          };
+        }
+
+        console.log("📍 Enviando localização completa para Notion");
       }
 
       const response = await notion.pages.create({
@@ -239,21 +266,46 @@ export class NotionService {
         };
       }
 
-      // Localização (Text)
+      // Localização (Text) - opcional
       if (transaction.location !== undefined) {
-        const locationText =
-          transaction.location.address ||
-          `${transaction.location.latitude}, ${transaction.location.longitude}`;
-
-        properties.Localização = {
-          rich_text: [
-            {
-              text: {
-                content: locationText,
+        // Enviar apenas o endereço formatado
+        if (transaction.location.address) {
+          properties.Localização = {
+            rich_text: [
+              {
+                text: {
+                  content: transaction.location.address,
+                },
               },
-            },
-          ],
-        };
+            ],
+          };
+        }
+
+        // Latitude (Text)
+        if (transaction.location.latitude) {
+          properties.Latitude = {
+            rich_text: [
+              {
+                text: {
+                  content: String(transaction.location.latitude),
+                },
+              },
+            ],
+          };
+        }
+
+        // Longitude (Text)
+        if (transaction.location.longitude) {
+          properties.Longitude = {
+            rich_text: [
+              {
+                text: {
+                  content: String(transaction.location.longitude),
+                },
+              },
+            ],
+          };
+        }
       }
 
       await notion.pages.update({

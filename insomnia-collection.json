@@ -1,0 +1,137 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "resources": [
+    {
+      "_type": "request_group",
+      "name": "OpenFinance API",
+      "description": "API de Automação Financeira com Supabase e Notion",
+      "environment": {},
+      "metaSortKey": -1000000000
+    },
+    {
+      "_type": "request",
+      "name": "1. Test API",
+      "method": "GET",
+      "url": "http://localhost:3000/api/test",
+      "description": "Testa se a API está funcionando",
+      "headers": [],
+      "body": {},
+      "parentId": "fld_openfinance"
+    },
+    {
+      "_type": "request",
+      "name": "2. Test Supabase Connection",
+      "method": "GET",
+      "url": "http://localhost:3000/api/test-supabase",
+      "description": "Testa conexão com Supabase",
+      "headers": [],
+      "body": {},
+      "parentId": "fld_openfinance"
+    },
+    {
+      "_type": "request",
+      "name": "3. Test Notion Connection",
+      "method": "GET",
+      "url": "http://localhost:3000/api/test-notion",
+      "description": "Testa conexão com Notion",
+      "headers": [],
+      "body": {},
+      "parentId": "fld_openfinance"
+    },
+    {
+      "_type": "request",
+      "name": "4. Create Transaction (Simple)",
+      "method": "POST",
+      "url": "http://localhost:3000/api/transaction",
+      "description": "Cria uma transação simples (sincroniza com Notion)",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"description\": \"Compra no Supermercado\",\n  \"amount\": -150.50,\n  \"is_credit_card\": false\n}"
+      },
+      "parentId": "fld_openfinance"
+    },
+    {
+      "_type": "request",
+      "name": "5. Create Transaction (Complete)",
+      "method": "POST",
+      "url": "http://localhost:3000/api/transaction",
+      "description": "Cria uma transação completa com todos os campos",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"description\": \"Jantar no Restaurante Italiano\",\n  \"amount\": -285.00,\n  \"is_credit_card\": true,\n  \"category\": \"Alimentação\",\n  \"tags\": [\"restaurante\", \"jantar\", \"italiano\"],\n  \"location\": {\n    \"latitude\": -23.550520,\n    \"longitude\": -46.633308,\n    \"address\": \"São Paulo, SP\"\n  }\n}"
+      },
+      "parentId": "fld_openfinance"
+    },
+    {
+      "_type": "request",
+      "name": "6. List All Transactions",
+      "method": "GET",
+      "url": "http://localhost:3000/api/transactions",
+      "description": "Lista todas as transações",
+      "headers": [],
+      "body": {},
+      "parentId": "fld_openfinance"
+    },
+    {
+      "_type": "request",
+      "name": "7. Filter by Month",
+      "method": "GET",
+      "url": "http://localhost:3000/api/transactions?month_year=2025-11",
+      "description": "Filtra transações por mês/ano",
+      "headers": [],
+      "body": {},
+      "parentId": "fld_openfinance"
+    },
+    {
+      "_type": "request",
+      "name": "8. Filter by Category",
+      "method": "GET",
+      "url": "http://localhost:3000/api/transactions?category=Alimentação",
+      "description": "Filtra transações por categoria",
+      "headers": [],
+      "body": {},
+      "parentId": "fld_openfinance"
+    },
+    {
+      "_type": "request",
+      "name": "9. Filter Credit Card Only",
+      "method": "GET",
+      "url": "http://localhost:3000/api/transactions?is_credit_card=true",
+      "description": "Lista apenas transações de cartão de crédito",
+      "headers": [],
+      "body": {},
+      "parentId": "fld_openfinance"
+    },
+    {
+      "_type": "request",
+      "name": "10. Create Income",
+      "method": "POST",
+      "url": "http://localhost:3000/api/transaction",
+      "description": "Cria uma transação de receita (valor positivo)",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"description\": \"Salário Mensal\",\n  \"amount\": 5000.00,\n  \"is_credit_card\": false,\n  \"category\": \"Receita\",\n  \"tags\": [\"salário\", \"mensal\"]\n}"
+      },
+      "parentId": "fld_openfinance"
+    }
+  ]
+}

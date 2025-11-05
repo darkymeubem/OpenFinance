@@ -212,15 +212,142 @@ app.get("/api/test-notion", async (req, res) => {
 // Rota para receber transações do iPhone
 app.post("/api/transaction", async (req, res) => {
   try {
-    const { description, amount, is_credit_card, category, tags, location } =
-      req.body;
+    console.log("🔍 DEBUG - Body recebido:", req.body);
+    console.log("🔍 DEBUG - Tipo do body:", typeof req.body);
+    console.log("🔍 DEBUG - Keys do body:", Object.keys(req.body));
+
+    // Verificar se o Shortcuts enviou o dicionário como string dentro de "JSON"
+    let bodyData = req.body;
+    if (req.body.JSON && typeof req.body.JSON === "string") {
+      console.log(
+        "🔧 Detectado body em formato de string JSON, fazendo parse..."
+      );
+      try {
+        bodyData = JSON.parse(req.body.JSON);
+        console.log("✅ Parse realizado com sucesso:", bodyData);
+      } catch (e) {
+        console.error("❌ Erro ao fazer parse do JSON:", e);
+      }
+    }
+
+    // Normalizar keys (remover espaços extras)
+    const normalizedBody: any = {};
+    for (const key in bodyData) {
+      const normalizedKey = key.trim();
+      let value = bodyData[key];
+
+      // Remover espaços extras dos valores também
+      if (typeof value === "string") {
+        value = value.trim();
+      }
+
+      normalizedBody[normalizedKey] = value;
+    }
+
+    let { description, amount, is_credit_card, category, tags, location } =
+      normalizedBody;
+
+    console.log(
+      "🔍 DEBUG - description:",
+      description,
+      "tipo:",
+      typeof description
+    );
+    console.log("🔍 DEBUG - amount:", amount, "tipo:", typeof amount);
+    console.log(
+      "🔍 DEBUG - category:",
+      typeof category === "string" ? category.substring(0, 50) : category
+    );
+    console.log(
+      "🔍 DEBUG - location:",
+      typeof location === "string" ? location.substring(0, 50) : location
+    );
 
     // Validar dados básicos
     if (!description || !amount) {
       return res.status(400).json({
         success: false,
         message: "Descrição e valor são obrigatórios",
+        debug: {
+          receivedBody: req.body,
+          normalizedBody: normalizedBody,
+          description: description,
+          amount: amount,
+          hasDescription: !!description,
+          hasAmount: !!amount,
+        },
       });
+    }
+
+    // Processar location se vier como string JSON
+    if (location && typeof location === "string") {
+      try {
+        const locationObj = JSON.parse(location);
+        let address = locationObj.address || locationObj.adress; // typo no shortcuts
+
+        // Formatar o endereço
+        if (address) {
+          address = address
+            .replace(/\n+/g, ", ")
+            .replace(/\s*,\s*/g, ", ")
+            .replace(/,+/g, ", ")
+            .trim();
+        }
+
+        location = {
+          latitude: Number(locationObj.latitude),
+          longitude: Number(locationObj.longitude),
+          address: address,
+        };
+        console.log("✅ Location convertido para objeto:", location);
+      } catch (e) {
+        console.log("⚠️ Erro ao parsear location, usando como string");
+        location = undefined; // Ignorar location inválido
+      }
+    }
+
+    // Se location já for objeto (vindo do Shortcuts como arquivo), normalizar
+    if (location && typeof location === "object") {
+      let address = location.address || location.adress; // typo no shortcuts
+
+      // Formatar o endereço: remover quebras de linha excessivas e normalizar espaços
+      if (address) {
+        address = address
+          .replace(/\n+/g, ", ") // Substituir quebras de linha por vírgulas
+          .replace(/\s*,\s*/g, ", ") // Normalizar espaços em volta das vírgulas
+          .replace(/,+/g, ", ") // Remover vírgulas duplicadas
+          .trim();
+      }
+
+      location = {
+        latitude: Number(location.latitude),
+        longitude: Number(location.longitude),
+        address: address,
+      };
+      console.log("✅ Location normalizado:", location);
+    }
+
+    // Validar category - se vier muito grande ou JSON, usar valor padrão
+    if (category && category.length > 100) {
+      console.log("⚠️ Category muito grande, usando 'Outros'");
+      category = "Outros";
+    }
+
+    // Se category parecer ser JSON (começa com {), usar valor padrão
+    if (category && category.startsWith("{")) {
+      console.log("⚠️ Category parece ser JSON, usando 'Outros'");
+      category = "Outros";
+    }
+
+    // Processar tags - se vier como string, separar por vírgula/quebra de linha
+    if (tags && typeof tags === "string") {
+      // Separar por vírgula, ponto-e-vírgula ou quebra de linha
+      tags = tags
+        .split(/[,;\n]+/) // Divide por vírgula, ponto-e-vírgula ou quebra de linha
+        .map((tag) => tag.trim()) // Remove espaços extras
+        .filter((tag) => tag.length > 0); // Remove tags vazias
+
+      console.log("✅ Tags processadas:", tags);
     }
 
     // Log da transação recebida
